@@ -179,8 +179,8 @@ void check_onthefly_pointing(const Array<T> &pointing_basis, const Array<T> &poi
     _check_location(pointing_coeffs.aflags, where, "pointing_coeffs", on_gpu);
     long ndet   = pointing_coeffs.shape[1];
     long nbasis = pointing_coeffs.shape[2];
-    long nt     = pointing_basis.shape[1];
-    xassert(pointing_basis.shape[0] == nbasis);
+    long nt     = pointing_basis.shape[0];
+    xassert(pointing_basis.shape[1] == nbasis);
     long nsamp  = ndet*nt;
     check_nsamp(nsamp, where);
     xassert_eq(nsamp, nsamp_expected);

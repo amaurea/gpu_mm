@@ -108,9 +108,9 @@ onthefly_tod2map_kernel(
             T ypix = 0, xpix = 0, alpha = 0;
             for(long b = 0; b < nbasis; b++) {
                 // Would it be better if pointing_basis were transposed?
-                ypix  += pointing_coeffs[0*ndet*nbasis+di*nbasis+b]*pointing_basis[b*nt+ti];
-                xpix  += pointing_coeffs[1*ndet*nbasis+di*nbasis+b]*pointing_basis[b*nt+ti];
-                alpha += pointing_coeffs[2*ndet*nbasis+di*nbasis+b]*pointing_basis[b*nt+ti];
+                ypix  += pointing_coeffs[0*ndet*nbasis+di*nbasis+b]*pointing_basis[ti*nbasis+b];
+                xpix  += pointing_coeffs[1*ndet*nbasis+di*nbasis+b]*pointing_basis[ti*nbasis+b];
+                alpha += pointing_coeffs[2*ndet*nbasis+di*nbasis+b]*pointing_basis[ti*nbasis+b];
             }
 	    T t = tod[s];
 
@@ -170,7 +170,7 @@ template<typename T>
 extern void launch_planned_onthefly_tod2map(
     ksgpu::Array<T> &local_map,                 // total size (3 * local_pixelization.npix)
     const ksgpu::Array<T> &tod,                 // shape (nsamp,) or (ndet,nt)
-    const ksgpu::Array<T> &pointing_basis,      // shape (nbasis,nt)
+    const ksgpu::Array<T> &pointing_basis,      // shape (nt,nbasis)
     const ksgpu::Array<T> &pointing_coeffs,     // shape ({y,x,alpha},ndet,nbasis)
     const LocalPixelization &local_pixelization, 
     const PointingPlan &plan,
@@ -193,14 +193,14 @@ extern void launch_planned_onthefly_tod2map(
 	onthefly_tod2map_kernel<T,W,true> <<< plan.pp.pointing_nblocks, {32,W}, shmem_nbytes >>>
 	    (local_map.data,                            // T *lmap
 	     tod.data,                                  // const T *tod
-	     pointing_basis.data,                       // const T *pointing_basis [nbasis,nt]
+	     pointing_basis.data,                       // const T *pointing_basis [nt,nbasis]
 	     pointing_coeffs.data,                      // const T *pointing_coeffs [{y,x,alpha},ndet,nt]
 	     local_pixelization.cell_offsets_gpu.data,  // const long *cell_offsets
 	     plan.plan_mt,                              // const ulong *plan_mt
 	     plan.err_gpu,                              // uint *errflags
 	     pointing_coeffs.shape[1],                  // long ndet  (nsamp=ndet*nt)
-	     pointing_basis.shape[1],                   // long nt
-	     pointing_basis.shape[0],                   // long nbasis
+	     pointing_basis.shape[0],                   // long nt
+	     pointing_basis.shape[1],                   // long nbasis
 	     plan.nypix_global,                         // int nypix_global
 	     plan.nxpix_global,                         // int nxpix_global
 	     local_pixelization.nycells,                // int nycells
@@ -217,14 +217,14 @@ extern void launch_planned_onthefly_tod2map(
 	onthefly_tod2map_kernel<T,W,false> <<< plan.pp.pointing_nblocks, {32,W}, shmem_nbytes >>>
 	    (local_map.data,                            // T *lmap
 	     tod.data,                                  // const T *tod
-	     pointing_basis.data,                       // const T *pointing_basis [nbasis,nt]
+	     pointing_basis.data,                       // const T *pointing_basis [nt,nbasis]
 	     pointing_coeffs.data,                      // const T *pointing_coeffs [{y,x,alpha},ndet,nt]
 	     local_pixelization.cell_offsets_gpu.data,  // const long *cell_offsets
 	     plan.plan_mt,                              // const ulong *plan_mt
 	     plan.err_gpu,                              // uint *errflags
 	     pointing_coeffs.shape[1],                  // long ndet  (nsamp=ndet*nt)
-	     pointing_basis.shape[1],                   // long nt
-	     pointing_basis.shape[0],                   // long nbasis
+	     pointing_basis.shape[0],                   // long nt
+	     pointing_basis.shape[1],                   // long nbasis
 	     plan.nypix_global,                         // int nypix_global
 	     plan.nxpix_global,                         // int nxpix_global
 	     local_pixelization.nycells,                // int nycells
