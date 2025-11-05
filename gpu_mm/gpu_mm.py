@@ -1418,7 +1418,7 @@ class PointingPlanTester(gpu_mm_pybind11.PointingPlanTester):
 
 def get_border_means(out, signal, index_map):
     """
-    Compute deglitching means, on GPU.
+    Compute dejumping means, on GPU.
 
       - signal: shape (ndet,ntod) float32 cupy array
     
@@ -1454,9 +1454,9 @@ def get_border_means(out, signal, index_map):
     gpu_mm_pybind11.get_border_means(out, signal, index_map)
 
 
-def deglitch(signal, bvals, index_map2):
+def dejump(signal, bvals, index_map2):
     """
-    Subtract deglitching offsets, on GPU.
+    Subtract dejumping offsets, on GPU.
 
       - signal: shape (ndet,ntod) float32 cupy array
 
@@ -1488,14 +1488,32 @@ def deglitch(signal, bvals, index_map2):
 
         index_map2 = cp.asarray(index_map2)  # CPU -> GPU
     
-    For more info on what deglitch() computes, it's easiest to refer to
-    the code for reference_deglitch() in gpu_mm.py.
+    For more info on what dejump() computes, it's easiest to refer to
+    the code for reference_dejump() in gpu_mm.py.
     """
 
     jumps = bvals[:,1]-bvals[:,0]
     cumj = cp.cumsum(jumps)
-    gpu_mm_pybind11.deglitch(signal, bvals, cumj, index_map2)
+    gpu_mm_pybind11.dejump(signal, bvals, cumj, index_map2)
 
+def gapfill(signal, bvals, index_map2):
+    """
+    Linear gapfilling on the GPU
+
+      - signal: shape (ndet,ntod) float32 cupy array
+
+      - bvals: shape (R,2) float32 cupy array containing border means
+         (this is the output array from get_border_means())
+    
+      - index_map2: shape (R,4) int32 cupy array containing indices for the mean computation
+        Each index 0 <= r < R represents one time range [t1:t2] for a fixed detector.
+    
+           index_map2[:,0] = detector index 'di'
+           index_map2[:,1] = ignored
+           index_map2[:,2] = starting time index 't1' of bin.
+           index_map2[:,3] = ending time index 't2' of bin.
+    """
+    gpu_mm_pybind11.gapfill(signal, bvals, index_map2)
     
 def reference_get_border_means(signal, index_map):
     """
@@ -1525,15 +1543,15 @@ def reference_get_border_means(signal, index_map):
     return bvals
 
 
-def reference_deglitch(signal, bvals, index_map2):
+def reference_dejump(signal, bvals, index_map2):
     """
-    Python reference implementation of GPU deglitch(), intended for testing and documentation.
+    Python reference implementation of GPU dejump(), intended for testing and documentation.
     
       - signal: shape (ndet,ntod) array
       - bvals: shape (R,2) array
       - index_map2: shape (R,4) array
     
-    For more info on arguments, see deglitch() docstring.
+    For more info on arguments, see dejump() docstring.
     """
 
     R = len(index_map2)

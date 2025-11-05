@@ -210,9 +210,11 @@ PYBIND11_MODULE(gpu_mm_pybind11, m)  // extension module gets compiled to gpu_mm
     m.def("get_border_means", &gpu_mm::get_border_means,
 	  py::arg("out"), py::arg("signal"), py::arg("index_map"));
 
-    m.def("deglitch", &gpu_mm::deglitch,
+    m.def("dejump", &gpu_mm::dejump,
 	  py::arg("signal"), py::arg("bvals"), py::arg("cumj"), py::arg("index_map2"));
     
+    m.def("gapfill", &gpu_mm::gapfill,
+	  py::arg("signal"), py::arg("bvals"), py::arg("index_map2"));
     
     // ---------------------------------------------------------------------------------------------
     //

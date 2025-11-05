@@ -25,7 +25,7 @@ def test_plan_iterator(niter=100):
         gpu_mm_pybind11.test_plan_iterator(plan_mt, nmt_per_block, warps_per_threadblock)
 
 
-def test_deglitching():
+def test_dejumping():
     for _ in range(50):
         R = np.random.randint(1, 100)
         ndet = np.random.randint(1, 10)
@@ -59,7 +59,7 @@ def test_deglitching():
         # print(f'test_make_border_means: {epsilon=}')
         assert epsilon < 1.0e-5
 
-        # Part 2: test deglitch()
+        # Part 2: test dejump()
         
         pairs = [ ]
         for _ in range(R):
@@ -83,18 +83,18 @@ def test_deglitching():
                 (r0, d0) = (r, d)
             index_map2[r,1] = r0
 
-        gpu_mm.reference_deglitch(signal, bvals, index_map2)
+        gpu_mm.reference_dejump(signal, bvals, index_map2)
         
         bvals_gpu = cp.asarray(bvals)   # synchronize 'bvals' on CPU/GPU, to eliminate roundoff
         index_map2_gpu = cp.asarray(index_map2)
-        gpu_mm.deglitch(signal_gpu, bvals_gpu, index_map2_gpu)
+        gpu_mm.dejump(signal_gpu, bvals_gpu, index_map2_gpu)
         signal_gpu = cp.asnumpy(signal_gpu)        
 
         epsilon = np.max(np.abs(signal - signal_gpu))
-        # print(f'test deglitch: {epsilon=}')
+        # print(f'test dejump: {epsilon=}')
         assert epsilon < 1.0e-5
         
-        print(f'test_deglitching(): pass')
+        print(f'test_dejumping(): pass')
 
 
 ####################################################################################################

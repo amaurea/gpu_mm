@@ -114,7 +114,7 @@ void get_border_means(
     int ndet = signal.shape[0];
     int ntime = signal.shape[1];
     
-    border_means_kernel<<<R,32>>> (out.data, signal.data, index_map.data, ndet, ntime);
+    if(R > 0) border_means_kernel<<<R,32>>> (out.data, signal.data, index_map.data, ndet, ntime);
     CUDA_PEEK("border_means kernel launch");
 
     // FIXME errflags
@@ -140,7 +140,7 @@ void get_border_means(
 // "this code doesn't need to be fast, it just needs to not be slow".
 
 
-__global__ void deglitch_kernel(float *signal, const float *bvals, const float *cumj, const int *index_map2, int ndet, int nt)
+__global__ void dejump_kernel(float *signal, const float *bvals, const float *cumj, const int *index_map2, int ndet, int nt)
 {
     int R = gridDim.x;
     int ri = blockIdx.x;
@@ -177,16 +177,16 @@ __global__ void deglitch_kernel(float *signal, const float *bvals, const float *
 }
 
 
-void deglitch(
+void dejump(
     ksgpu::Array<float> &signal,          // shape (ndet,ntime)
     const ksgpu::Array<float> &bvals,     // shape (R,2)
     const ksgpu::Array<float> &cumj,      // shape (R,)
     const ksgpu::Array<int> &index_map2)  // shape (R,4)
 {
-    check_gpu_array(signal, "deglitch", "signal", 2);
-    check_gpu_array(bvals, "deglitch", "bvals", 2);
-    check_gpu_array(cumj, "deglitch", "cumj", 1);
-    check_gpu_array(index_map2, "deglitch", "index_map2", 2);
+    check_gpu_array(signal, "dejump", "signal", 2);
+    check_gpu_array(bvals, "dejump", "bvals", 2);
+    check_gpu_array(cumj, "dejump", "cumj", 1);
+    check_gpu_array(index_map2, "dejump", "index_map2", 2);
 
     // bvals.shape = (R,2)
     // cumj.shape = (R,)
@@ -200,11 +200,50 @@ void deglitch(
     int ndet = signal.shape[0];
     int ntime = signal.shape[1];
 
-    deglitch_kernel<<<R,128>>> (signal.data, bvals.data, cumj.data, index_map2.data, ndet, ntime);
-    CUDA_PEEK("deglitch kernel launch");
+    if(R > 0) dejump_kernel<<<R,128>>> (signal.data, bvals.data, cumj.data, index_map2.data, ndet, ntime);
+    CUDA_PEEK("dejump kernel launch");
 
     // FIXME errflags
 }
 
+__global__ void gapfill_kernel(float *signal, const float *bvals, const int *index_map2, int ndet, int nt)
+{
+    int ri = blockIdx.x;
+    int di = index_map2[4*ri];
+    // index_map2[4*ri + 1] is not used in this function
+    int t0 = index_map2[4*ri + 2];
+    int t1 = index_map2[4*ri + 3];
+    float b1 = bvals[2*ri + 0];
+    float b2 = bvals[2*ri + 1];
+    // go to start of this detector
+    signal += long(di) * long(nt);
+    for (int t = t0 + threadIdx.x; t < t1; t += blockDim.x)
+        signal[t] = b1 + (b2-b1)*(t-t0+1)/(t1-t0+1);
+}
+
+void gapfill(
+    ksgpu::Array<float> &signal,          // shape (ndet,ntime)
+    const ksgpu::Array<float> &bvals,     // shape (R,2)
+    const ksgpu::Array<int> &index_map2)  // shape (R,4)
+{
+    check_gpu_array(signal, "gapfill", "signal", 2);
+    check_gpu_array(bvals, "gapfill", "bvals", 2);
+    // Use same structure as dejump for convenience, but
+    // index 1 is ignored
+    check_gpu_array(index_map2, "gapfill", "index_map2", 2);
+    // bvals.shape = (R,2)
+    // index_map2.shape = (R,4)
+    xassert_eq(bvals.shape[1], 2);
+    xassert_eq(index_map2.shape[1], 4);
+
+    int R = bvals.shape[0];
+    int ndet = signal.shape[0];
+    int ntime = signal.shape[1];
+
+    if(R > 0) gapfill_kernel<<<R,128>>> (signal.data, bvals.data, index_map2.data, ndet, ntime);
+    CUDA_PEEK("gapfill  kernel launch");
+
+    // FIXME errflags
+}
 
 }  // namespace gpu_mm
