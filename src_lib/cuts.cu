@@ -28,6 +28,13 @@ void insert_ranges_gpu(float * tod, int nsamp, float * rdata, int * ostart, int 
 }
 
 __global__
+void addto_ranges_gpu(float * tod, int nsamp, float * rdata, int * ostart, int nrange, int * det, int * istart, int * len) {
+	for(int r = blockIdx.x; r < nrange; r += gridDim.x)
+		for(int i = threadIdx.x; i < len[r]; i += blockDim.x)
+			tod[det[r]*nsamp+istart[r]+i] += rdata[ostart[r]+i];
+}
+
+__global__
 void clear_ranges_gpu(float * tod, int nsamp, int nrange, int * det, int * istart, int * len) {
 	for(int r = blockIdx.x; r < nrange; r += gridDim.x)
 		for(int i = threadIdx.x; i < len[r]; i += blockDim.x)
@@ -44,6 +51,12 @@ extern "C" {
 
 	void insert_ranges(float * tod, int nsamp, float * rdata, int * ostart, int nrange, int * det, int * istart, int * len) {
 		insert_ranges_gpu<<<128,128>>>(tod, nsamp, rdata, ostart, nrange, det, istart, len);
+		gpuErrchk(cudaPeekAtLastError());
+		gpuErrchk(cudaDeviceSynchronize());
+	}
+
+	void addto_ranges(float * tod, int nsamp, float * rdata, int * ostart, int nrange, int * det, int * istart, int * len) {
+		addto_ranges_gpu<<<128,128>>>(tod, nsamp, rdata, ostart, nrange, det, istart, len);
 		gpuErrchk(cudaPeekAtLastError());
 		gpuErrchk(cudaDeviceSynchronize());
 	}

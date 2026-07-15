@@ -1596,13 +1596,17 @@ _extract_ranges.argtypes = (_p, _i, _p, _p, _i, _p, _p, _p)
 _insert_ranges = _libgpu_mm.insert_ranges
 _insert_ranges.argtypes = (_p, _i, _p, _p, _i, _p, _p, _p)
 
+_addto_ranges = _libgpu_mm.addto_ranges
+_addto_ranges.argtypes = (_p, _i, _p, _p, _i, _p, _p, _p)
+
 _clear_ranges = _libgpu_mm.clear_ranges
 _clear_ranges.argtypes = (_p, _i, _i, _p, _p, _p)
 
 
 # Cuts
-def insert_ranges(tod, junk, offs, dets, starts, lens):
-    _insert_ranges(tod.data.ptr, tod.shape[1], junk.data.ptr, offs.data.ptr, len(lens), dets.data.ptr, starts.data.ptr, lens.data.ptr)
+def insert_ranges(tod, junk, offs, dets, starts, lens, add=False):
+    if add: _addto_ranges(tod.data.ptr, tod.shape[1], junk.data.ptr, offs.data.ptr, len(lens), dets.data.ptr, starts.data.ptr, lens.data.ptr)
+    else:  _insert_ranges(tod.data.ptr, tod.shape[1], junk.data.ptr, offs.data.ptr, len(lens), dets.data.ptr, starts.data.ptr, lens.data.ptr)
 
 def extract_ranges(tod, junk, offs, dets, starts, lens):
     _extract_ranges(tod.data.ptr, tod.shape[1], junk.data.ptr, offs.data.ptr, len(lens), dets.data.ptr, starts.data.ptr, lens.data.ptr)
