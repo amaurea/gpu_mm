@@ -83,6 +83,7 @@ LIB_SRCFILES = \
   src_lib/map2tod_response.cu \
   src_lib/map2tod_reference.cu \
   src_lib/map2tod_unplanned.cu \
+  src_lib/pickup.cu \
   src_lib/misc.cu \
   src_lib/pycufft.cu \
   src_lib/test_plan_iterator.cu \

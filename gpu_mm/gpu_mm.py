@@ -1614,6 +1614,10 @@ def extract_ranges(tod, junk, offs, dets, starts, lens):
 def clear_ranges(tod, dets, starts, lens):
     _clear_ranges(tod.data.ptr, tod.shape[1], len(lens), dets.data.ptr, starts.data.ptr, lens.data.ptr)
 
+# Pickup
+def tod2pickup(pickup, tod, x): gpu_mm_pybind11.tod2pickup(pickup, tod, x)
+def pickup2tod(pickup, tod, x): gpu_mm_pybind11.pickup2tod(pickup, tod, x)
+
 # ----------
 # Misc stuff
 

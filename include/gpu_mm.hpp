@@ -242,6 +242,19 @@ extern void reference_tod2map(
     bool partial_pixelization
 );
 
+template<typename T>
+extern void launch_tod2pickup(
+    ksgpu::Array<T> &pickup,    // (ndet,nx)
+    const ksgpu::Array<T> &tod, // (ndet,nsamp)
+    const ksgpu::Array<T> &x    // (nsamp). Assumed to be in range [0,nx-1] (yes, exclusive end)
+);
+
+template<typename T>
+extern void launch_pickup2tod(
+    const ksgpu::Array<T> &pickup, // (ndet,nx)
+    ksgpu::Array<T> &tod,          // (ndet,nsamp)
+    const ksgpu::Array<T> &x       // (nsamp). Assumed to be in range [0,nx-1] (yes, exclusive end)
+);
 
 template<typename T>
 extern void cell_broadcast(
