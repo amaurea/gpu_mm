@@ -324,6 +324,37 @@ extern void gapfill(
     const ksgpu::Array<int> &index_map2   // shape (R,4)
 );
 
+// Misc
+template<typename T>
+extern void pair_rot(
+    ksgpu::Array<T> &tod,                // (ndet,nsamp)
+    const ksgpu::Array<int32_t> & pairs, // (npair,2)
+    const ksgpu::Array<T> & coss,        // (npair,nblock)
+    const ksgpu::Array<T> & sins,        // (npair,nblock)
+    int32_t bsize,
+    int inv
+);
+
+
+template<typename T>
+extern void pair_cov(
+    const ksgpu::Array<T> &tod,          // (ndet,nsamp)
+    const ksgpu::Array<int32_t> & pairs, // (npair,2)
+    ksgpu::Array<T> & covs,              // (npair,nblock)
+    int32_t bsize
+);
+
+template<typename T>
+extern void eigh2(
+    const ksgpu::Array<T> & a, // All are (nsamp,)
+    const ksgpu::Array<T> & b,
+    const ksgpu::Array<T> & c,
+    ksgpu::Array<T> & E1,
+    ksgpu::Array<T> & E2,
+    ksgpu::Array<T> & Vx,
+    ksgpu::Array<T> & Vy
+);
+
 // -----------------------------------------------------------------------------
 //
 // Internals + testing

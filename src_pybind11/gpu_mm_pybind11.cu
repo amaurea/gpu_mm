@@ -225,6 +225,16 @@ PYBIND11_MODULE(gpu_mm_pybind11, m)  // extension module gets compiled to gpu_mm
     m.def("gapfill", &gpu_mm::gapfill,
           py::arg("signal"), py::arg("bvals"), py::arg("index_map2"));
 
+    // Misc
+    m.def("pair_rot", &gpu_mm::pair_rot<Tmm>, py::arg("tod"), py::arg("pairs"),
+          py::arg("coss"), py::arg("sins"), py::arg("bsize"), py::arg("inv"));
+
+    m.def("pair_cov", &gpu_mm::pair_cov<Tmm>, py::arg("tod"), py::arg("pairs"),
+          py::arg("covs"), py::arg("bsize"));
+
+    m.def("eigh2", &gpu_mm::eigh2<Tmm>, py::arg("a"), py::arg("b"),
+          py::arg("c"), py::arg("E1"), py::arg("E2"), py::arg("Vx"), py::arg("Vy"));
+
     // ---------------------------------------------------------------------------------------------
     //
     // Only used in unit tests
