@@ -61,117 +61,117 @@ struct plan_iterator_irregular
 
     __device__ plan_iterator_irregular(const ulong *plan_mt_, uint imt_start, uint imt_end_)
     {
-	if constexpr (Debug) {
-	    assert(imt_start <= imt_end_);
-	    assert(blockDim.x == 32);
-	    assert(blockDim.y == W);
-	}
+        if constexpr (Debug) {
+            assert(imt_start <= imt_end_);
+            assert(blockDim.x == 32);
+            assert(blockDim.y == W);
+        }
 
-	// Initialized in constructor, constant after construction.
-	this->plan_mt = plan_mt_;
-	this->imt_end = imt_end_;
+        // Initialized in constructor, constant after construction.
+        this->plan_mt = plan_mt_;
+        this->imt_end = imt_end_;
 
-	// Ring buffer state.
-	this->imt_rb = imt_start & ~31U;
-	this->_load_mt_rb();
+        // Ring buffer state.
+        this->imt_rb = imt_start & ~31U;
+        this->_load_mt_rb();
 
-	// Sentinel initializations, to ensure that get_cell() does the right thing.
-	this->next_cell_start = imt_start;
-	this->next_cell_seen = true;
-	this->imt_next = imt_start;
+        // Sentinel initializations, to ensure that get_cell() does the right thing.
+        this->next_cell_start = imt_start;
+        this->next_cell_seen = true;
+        this->imt_next = imt_start;
     }
 
     
     __device__ bool get_cell()
     {
-	// Assumes that caller has initialized { next_cell_*, imt_next }.
-	// We either return false, or we update { icell, next_cell_*, imt_next } and return true.
+        // Assumes that caller has initialized { next_cell_*, imt_next }.
+        // We either return false, or we update { icell, next_cell_*, imt_next } and return true.
 
-	if (!next_cell_seen) {
-	    if constexpr (Debug) {
-		assert(imt_rb+32 >= imt_end);
-		assert(imt_next >= imt_end);
-	    }
-	    return false;
-	}
+        if (!next_cell_seen) {
+            if constexpr (Debug) {
+                assert(imt_rb+32 >= imt_end);
+                assert(imt_next >= imt_end);
+            }
+            return false;
+        }
 
-	int src_lane = next_cell_start & 31;
-	uint src_icell = uint(mt_rb) & ((1U << 20) - 1);
+        int src_lane = next_cell_start & 31;
+        uint src_icell = uint(mt_rb) & ((1U << 20) - 1);
 
-	if constexpr (Debug) {
-	    assert(imt_rb + src_lane == next_cell_start);
-	    assert(imt_next >= next_cell_start);
-	}
+        if constexpr (Debug) {
+            assert(imt_rb + src_lane == next_cell_start);
+            assert(imt_next >= next_cell_start);
+        }
 
-	this->icell = __shfl_sync(ALL_LANES, src_icell, src_lane);
-	this->imt_next = next_cell_start + threadIdx.y;   // Reminder: threadIdx.y is the warpId
-	this->_init_next_cell_state();                    // Initializes next_cell_*
-	return true;
+        this->icell = __shfl_sync(ALL_LANES, src_icell, src_lane);
+        this->imt_next = next_cell_start + threadIdx.y;   // Reminder: threadIdx.y is the warpId
+        this->_init_next_cell_state();                    // Initializes next_cell_*
+        return true;
     }
     
 
     __device__ bool get_cl()
     {
-	// Caller has initialized current-cell state, next-cell state, and 'imt_next'.
-	// We either return false, or we update { imt_next, icl, icl_flagged } and return true.
+        // Caller has initialized current-cell state, next-cell state, and 'imt_next'.
+        // We either return false, or we update { imt_next, icl, icl_flagged } and return true.
 
-	while (imt_next >= imt_rb+32) {
-	    if (next_cell_seen || (imt_rb+32 >= imt_end))
-		return false;   // return false without advancing ring buffer
+        while (imt_next >= imt_rb+32) {
+            if (next_cell_seen || (imt_rb+32 >= imt_end))
+                return false;   // return false without advancing ring buffer
 
-	    // Advance ring buffer
-	    imt_rb += 32;
-	    _load_mt_rb();            // initializes 'mt_rb' from 'imt_rb'
-	    _init_next_cell_state();  // initializes next-cell state from 'mt_rb'
-	}
+            // Advance ring buffer
+            imt_rb += 32;
+            _load_mt_rb();            // initializes 'mt_rb' from 'imt_rb'
+            _init_next_cell_state();  // initializes next-cell state from 'mt_rb'
+        }
 
-	uint iend = next_cell_seen ? next_cell_start : imt_end;
-	
-	if (imt_next >= iend)
-	    return false;
-	
-	// If we get here, then we update 'imt_next', 'icl', 'icl_flagged, and return true.
-	
-	int src_lane = imt_next & 31;
+        uint iend = next_cell_seen ? next_cell_start : imt_end;
+        
+        if (imt_next >= iend)
+            return false;
+        
+        // If we get here, then we update 'imt_next', 'icl', 'icl_flagged, and return true.
+        
+        int src_lane = imt_next & 31;
 
-	if constexpr (Debug) {
-	    uint src_icell = uint(mt_rb) & ((1U << 20) - 1);
-	    assert(imt_next == imt_rb + src_lane);
-	    assert((src_lane != threadIdx.x) || (src_icell == icell));
-	}
+        if constexpr (Debug) {
+            uint src_icell = uint(mt_rb) & ((1U << 20) - 1);
+            assert(imt_next == imt_rb + src_lane);
+            assert((src_lane != threadIdx.x) || (src_icell == icell));
+        }
 
-	uint icl_rb = uint(mt_rb >> 20);
-	this->icl_flagged = __shfl_sync(ALL_LANES, icl_rb, src_lane);
-	this->icl = icl_flagged & ((1U << 26) - 1);
-	this->imt_next += W;
-	return true;
+        uint icl_rb = uint(mt_rb >> 20);
+        this->icl_flagged = __shfl_sync(ALL_LANES, icl_rb, src_lane);
+        this->icl = icl_flagged & ((1U << 26) - 1);
+        this->imt_next += W;
+        return true;
     }
 
 
     __device__ void _load_mt_rb()
     {
-	// Initializes 'mt_rb' from 'imt_rb'.
+        // Initializes 'mt_rb' from 'imt_rb'.
 
-	if constexpr (Debug) {
-	    assert(imt_rb < imt_end);
-	    assert((imt_rb & 31) == 0);
-	}
-	
-	// Block dims are (32,W), so threadIdx.x is the laneId.
-	uint imt = min(imt_rb + threadIdx.x, imt_end - 1);	
-	this->mt_rb = plan_mt[imt];
+        if constexpr (Debug) {
+            assert(imt_rb < imt_end);
+            assert((imt_rb & 31) == 0);
+        }
+
+        // Block dims are (32,W), so threadIdx.x is the laneId.
+        uint imt = min(imt_rb + threadIdx.x, imt_end - 1);        
+        this->mt_rb = plan_mt[imt];
     }
 
 
     __device__ void _init_next_cell_state()
     {
-	// Initializes 'next_cell_seen' and 'next_cell_start', from 'mt_rb' and 'icell'.
-	
-	uint icell_remote = uint(mt_rb) & ((1U << 20) - 1);
-	uint flags = __ballot_sync(ALL_LANES, icell_remote > icell);
+        // Initializes 'next_cell_seen' and 'next_cell_start', from 'mt_rb' and 'icell'.
 
-	this->next_cell_seen = (flags != 0);
-	this->next_cell_start = imt_rb + __ffs(flags) - 1;
+        uint icell_remote = uint(mt_rb) & ((1U << 20) - 1);
+        uint flags = __ballot_sync(ALL_LANES, icell_remote > icell);
+
+        this->next_cell_seen = (flags != 0);
+        this->next_cell_start = imt_rb + __ffs(flags) - 1;
     }
 };
 
@@ -180,16 +180,16 @@ template<int W, bool Debug>
 struct plan_iterator : public plan_iterator_irregular<W,Debug>
 {
     __device__ plan_iterator(const ulong *plan_mt_, uint nmt, uint nmt_per_block)
-	: plan_iterator_irregular<W,Debug> (
-	      plan_mt_,
-	      blockIdx.x * nmt_per_block,                // imt_start
-	      min(nmt, (blockIdx.x+1) * nmt_per_block))  // imt_end
+        : plan_iterator_irregular<W,Debug> (
+              plan_mt_,
+              blockIdx.x * nmt_per_block,                // imt_start
+              min(nmt, (blockIdx.x+1) * nmt_per_block))  // imt_end
     {
-	if constexpr (Debug) {
-	    assert(nmt_per_block > 0);
-	    assert((gridDim.x-1) * nmt_per_block < nmt);
-	    assert((gridDim.x) * nmt_per_block >= nmt);
-	}
+        if constexpr (Debug) {
+            assert(nmt_per_block > 0);
+            assert((gridDim.x-1) * nmt_per_block < nmt);
+            assert((gridDim.x) * nmt_per_block >= nmt);
+        }
     }
 };
 
