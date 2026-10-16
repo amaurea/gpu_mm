@@ -246,6 +246,19 @@ extern void reference_tod2map(
     bool partial_pixelization
 );
 
+template<typename T>
+extern void launch_tod2pickup(
+    ksgpu::Array<T> &pickup,    // (ndet,nx)
+    const ksgpu::Array<T> &tod, // (ndet,nsamp)
+    const ksgpu::Array<T> &x    // (nsamp). Assumed to be in range [0,nx-1] (yes, exclusive end)
+);
+
+template<typename T>
+extern void launch_pickup2tod(
+    const ksgpu::Array<T> &pickup, // (ndet,nx)
+    ksgpu::Array<T> &tod,          // (ndet,nsamp)
+    const ksgpu::Array<T> &x       // (nsamp). Assumed to be in range [0,nx-1] (yes, exclusive end)
+);
 
 template<typename T>
 extern void cell_broadcast(
@@ -309,6 +322,37 @@ extern void gapfill(
     ksgpu::Array<float> &signal,          // shape (ndet,ntime)
     const ksgpu::Array<float> &bvals,     // shape (R,2)
     const ksgpu::Array<int> &index_map2   // shape (R,4)
+);
+
+// Misc
+template<typename T>
+extern void pair_rot(
+    ksgpu::Array<T> &tod,                // (ndet,nsamp)
+    const ksgpu::Array<int32_t> & pairs, // (npair,2)
+    const ksgpu::Array<T> & coss,        // (npair,nblock)
+    const ksgpu::Array<T> & sins,        // (npair,nblock)
+    int32_t bsize,
+    int inv
+);
+
+
+template<typename T>
+extern void pair_cov(
+    const ksgpu::Array<T> &tod,          // (ndet,nsamp)
+    const ksgpu::Array<int32_t> & pairs, // (npair,2)
+    ksgpu::Array<T> & covs,              // (npair,nblock)
+    int32_t bsize
+);
+
+template<typename T>
+extern void eigh2(
+    const ksgpu::Array<T> & a, // All are (nsamp,)
+    const ksgpu::Array<T> & b,
+    const ksgpu::Array<T> & c,
+    ksgpu::Array<T> & E1,
+    ksgpu::Array<T> & E2,
+    ksgpu::Array<T> & Vx,
+    ksgpu::Array<T> & Vy
 );
 
 // -----------------------------------------------------------------------------

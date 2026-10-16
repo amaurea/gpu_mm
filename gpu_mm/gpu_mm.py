@@ -1618,6 +1618,33 @@ def extract_ranges(tod, junk, offs, dets, starts, lens):
 def clear_ranges(tod, dets, starts, lens):
     _clear_ranges(tod.data.ptr, tod.shape[1], len(lens), dets.data.ptr, starts.data.ptr, lens.data.ptr)
 
+# Pickup
+def tod2pickup(pickup, tod, x): gpu_mm_pybind11.tod2pickup(pickup, tod, x)
+def pickup2tod(pickup, tod, x): gpu_mm_pybind11.pickup2tod(pickup, tod, x)
+
+# Misc
+def pair_rot(tod, pairs, rots, bsize, inv=False):
+	gpu_mm_pybind11.pair_rot(tod, pairs, rots[0], rots[1], bsize, inv=inv)
+
+def pair_cov(tod, pairs, bsize):
+	assert tod.ndim == 2
+	assert pairs.ndim == 2
+	assert pairs.shape[1] == 2
+	nblock = max(tod.shape[1]//bsize,1)
+	covs = cp.zeros((len(pairs),nblock), tod.dtype)
+	gpu_mm_pybind11.pair_cov(tod, pairs, covs, bsize)
+	return covs
+
+def eigh2(a, b, c, E=None, V1=None):
+	a, b, c = [cp.asarray(v, order="C") for v in [a,b,c]]
+	if E  is None: E  = cp.empty((2,)+a.shape, a.dtype)
+	if V1 is None: V1 = cp.empty((2,)+a.shape, a.dtype)
+	if not E .flags["C_CONTIGUOUS"]: raise ValueError("E  is not contiguous")
+	if not V1.flags["C_CONTIGUOUS"]: raise ValueError("V1 is not contiguous")
+	fa, fb, fc, fe1, fe2, fvx, fvy = [v.reshape(-1) for v in [a,b,c,E[0],E[1],V1[0],V1[1]]]
+	gpu_mm_pybind11.eigh2(fa, fb, fc, fe1, fe2, fvx, fvy)
+	return E, V1
+
 # ----------
 # Misc stuff
 

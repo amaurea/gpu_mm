@@ -71,6 +71,7 @@ response_tod2map_kernel(
     plan_iterator<W,Debug> iterator(plan_mt, nmt, nmt_per_block);
     pixel_locator<T> px(nypix_global, nxpix_global, periodic_xcoord);
 
+
     long nsamp = ndet*nperdet;
 
     // Outer loop over map cells
@@ -85,7 +86,7 @@ response_tod2map_kernel(
         err = ((offset >= 0) || partial_pixelization) ? err : errflag_not_in_pixelization;
 
         if (offset >= 0) {
-            // Zero shared memmory
+            // Zero shared memory
             for (int s = 32*warpId + laneId; s < 3*64*64; s += 32*W)
                 shmem[s] = 0;
         }
@@ -137,7 +138,9 @@ response_tod2map_kernel(
                 long sg = offset + y*ystride + x;  // global memory offset
 
                 T t = shmem[ss];
-                if (!__reduce_or_sync(ALL_LANES, t != 0))
+                T q = shmem[ss+polstride];
+                T u = shmem[ss+2*polstride];
+                if (!__reduce_or_sync(ALL_LANES, (t!=0)||(q!=0)||(u!=0)))
                     continue;
 
                 // Check for out-of-range memory access

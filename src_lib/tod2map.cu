@@ -176,6 +176,7 @@ extern void launch_planned_tod2map(
     xassert_eq(local_pixelization.nxpix_global, plan.nxpix_global);
     xassert_eq(local_pixelization.periodic_xcoord, plan.periodic_xcoord);
 
+
     if (debug) {
         tod2map_kernel<T,W,true> <<< plan.pp.pointing_nblocks, {32,W}, shmem_nbytes >>>
             (local_map.data,                            // T *lmap
