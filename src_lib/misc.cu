@@ -1,5 +1,7 @@
 //nvcc -o libgpu_point.so gpu_point.cu -shared -lcublas -Xcompiler -fPIC -lgomp
 
+// Mistakes here all by Sigurd, don't blame Kendrick
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -63,32 +65,25 @@ extern void pair_rot(
     CUDA_PEEK("pair_rot kernel launch");
 }
 
-template<typename T> __global__ void pair_cov_kernel(const T * tod, const int32_t * pairs, T * covs, int32_t bsize, int32_t nsamp, int32_t npair, int32_t nblock) {
-    extern __shared__ char shared[];
-    T * work = (T*) shared;
-
-    int32_t pair = blockIdx.x;
+// This should be safe for npair < max uint16 and nbin < max uint32,
+// and pretty well performing as long as nbin*npair >>> bsize
+template<typename T> __global__ void pair_cov_kernel(const T * tod, const int32_t * pairs, T * covs, int32_t bsize, int32_t nsamp, int32_t npair, int32_t nbin) {
+    int32_t pair  = blockIdx.y;
     int32_t det1 = pairs[2*pair+0], det2 = pairs[2*pair+1];
     const T * d1 = tod + (size_t)det1*nsamp;
     const T * d2 = tod + (size_t)det2*nsamp;
-    T * pcov = covs + (size_t)pair*nblock;
 
-    // Zero shared work array so we can accumulate atomically into it
-    for(int32_t block = threadIdx.x; block < nblock; block += blockDim.x) {
-        work[block] = 0;
-    }
-    __syncthreads();
+    // Each thread does one bin. A block of threads does blockDim consecutive bins.
+    // Have gridDim.x such blocks, which together process gridDim.x*blockDim.x bins
 
-    for(int32_t si = threadIdx.x; si < nsamp; si += blockDim.x) {
-        int32_t block = si/bsize;
-        if(block >= nblock) block = nblock-1;
-        atomicAdd(&work[block], d1[si]*d2[si]);
-    }
-    __syncthreads();
-    // Copy into output array and normalize
-    for(int32_t block = threadIdx.x; block < nblock; block += blockDim.x) {
-        T norm = block < nblock-1 ? bsize : (nsamp-bsize*(nblock-1));
-        pcov[block] = work[block]/norm;
+    for(int32_t bin = blockIdx.x*blockDim.x + threadIdx.x; bin < nbin; bin += gridDim.x*blockDim.x) {
+        int32_t s1 = bin*bsize;
+        int32_t s2 = bin < nbin-1 ? (bin+1)*bsize : nsamp;
+        T cov = 0;
+        for(int32_t si = s1; si < s2; si++)
+            cov += d1[si]*d2[si];
+        cov /= s2-s1;
+        covs[pair*nbin+bin] = cov;
     }
 }
 
@@ -104,16 +99,18 @@ extern void pair_cov(
     xassert(tod  .ndim == 2);
     xassert(pairs.ndim == 2);
     xassert(covs .ndim == 2);
-    int32_t ndet = tod.shape[0];
-    int32_t nsamp= tod.shape[1];
+    int32_t ndet  = tod.shape[0];
+    int32_t nsamp = tod.shape[1];
     int32_t npair = pairs.shape[0];
-    int32_t nblock= covs.shape[1];
+    int32_t nbin  = covs.shape[1];
     xassert(covs.shape[0] == npair);
     xassert(tod  .is_fully_contiguous());
     xassert(pairs.is_fully_contiguous());
     xassert(covs .is_fully_contiguous());
-    int shmem_nbytes = nblock*sizeof(T);
-    pair_cov_kernel<T> <<<npair, 256, shmem_nbytes>>> (tod.data, pairs.data, covs.data, bsize, nsamp, npair, nblock);
+    int32_t block_size = 64;
+    int32_t nblock = (nbin+block_size-1)/block_size;
+    dim3 grid; grid.y = npair; grid.x = nblock;
+    pair_cov_kernel<T> <<<grid, block_size>>> (tod.data, pairs.data, covs.data, bsize, nsamp, npair, nbin);
     CUDA_PEEK("pair_cov kernel launch");
 }
 
