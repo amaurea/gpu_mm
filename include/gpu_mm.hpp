@@ -340,7 +340,9 @@ template<typename T>
 extern void pair_cov(
     const ksgpu::Array<T> &tod,          // (ndet,nsamp)
     const ksgpu::Array<int32_t> & pairs, // (npair,2)
-    ksgpu::Array<T> & covs,              // (npair,nblock)
+    ksgpu::Array<T> & covs11,            // (npair,nblock)
+    ksgpu::Array<T> & covs12,            // (npair,nblock)
+    ksgpu::Array<T> & covs22,            // (npair,nblock)
     int32_t bsize
 );
 

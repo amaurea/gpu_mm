@@ -67,7 +67,7 @@ extern void pair_rot(
 
 // This should be safe for npair < max uint16 and nbin < max uint32,
 // and pretty well performing as long as nbin*npair >>> bsize
-template<typename T> __global__ void pair_cov_kernel(const T * tod, const int32_t * pairs, T * covs, int32_t bsize, int32_t nsamp, int32_t npair, int32_t nbin) {
+template<typename T> __global__ void pair_cov_kernel(const T * tod, const int32_t * pairs, T * covs11, T * covs12, T * covs22, int32_t bsize, int32_t nsamp, int32_t npair, int32_t nbin) {
     int32_t pair  = blockIdx.y;
     int32_t det1 = pairs[2*pair+0], det2 = pairs[2*pair+1];
     const T * d1 = tod + (size_t)det1*nsamp;
@@ -79,11 +79,18 @@ template<typename T> __global__ void pair_cov_kernel(const T * tod, const int32_
     for(int32_t bin = blockIdx.x*blockDim.x + threadIdx.x; bin < nbin; bin += gridDim.x*blockDim.x) {
         int32_t s1 = bin*bsize;
         int32_t s2 = bin < nbin-1 ? (bin+1)*bsize : nsamp;
-        T cov = 0;
-        for(int32_t si = s1; si < s2; si++)
-            cov += d1[si]*d2[si];
-        cov /= s2-s1;
-        covs[pair*nbin+bin] = cov;
+        T cov11 = 0, cov12 = 0, cov22 = 0;
+        for(int32_t si = s1; si < s2; si++) {
+            cov11 += d1[si]*d1[si];
+            cov12 += d1[si]*d2[si];
+            cov22 += d2[si]*d2[si];
+        }
+        cov11 /= s2-s1;
+        cov12 /= s2-s1;
+        cov22 /= s2-s1;
+        covs11[pair*nbin+bin] = cov11;
+        covs12[pair*nbin+bin] = cov12;
+        covs22[pair*nbin+bin] = cov22;
     }
 }
 
@@ -91,26 +98,32 @@ template<typename T>
 extern void pair_cov(
     const ksgpu::Array<T> &tod,          // (ndet,nsamp)
     const ksgpu::Array<int32_t> & pairs, // (npair,2)
-    ksgpu::Array<T> & covs,              // (npair,nblock)
+    ksgpu::Array<T> & covs11,            // (npair,nblock)
+    ksgpu::Array<T> & covs12,            // (npair,nblock)
+    ksgpu::Array<T> & covs22,            // (npair,nblock)
     int32_t bsize)
 {
     // The existing check functions didn't quite cover this case, so I just did it
     // directly. Can factor out later if necessary
-    xassert(tod  .ndim == 2);
-    xassert(pairs.ndim == 2);
-    xassert(covs .ndim == 2);
+    xassert(tod   .ndim == 2);
+    xassert(pairs .ndim == 2);
+    xassert(covs11.ndim == 2);
+    xassert(covs12.ndim == 2);
+    xassert(covs22.ndim == 2);
     int32_t ndet  = tod.shape[0];
     int32_t nsamp = tod.shape[1];
     int32_t npair = pairs.shape[0];
-    int32_t nbin  = covs.shape[1];
+    int32_t nbin  = covs11.shape[1];
     xassert(covs.shape[0] == npair);
     xassert(tod  .is_fully_contiguous());
     xassert(pairs.is_fully_contiguous());
-    xassert(covs .is_fully_contiguous());
+    xassert(covs11.is_fully_contiguous());
+    xassert(covs12.is_fully_contiguous());
+    xassert(covs22.is_fully_contiguous());
     int32_t block_size = 64;
     int32_t nblock = (nbin+block_size-1)/block_size;
     dim3 grid; grid.y = npair; grid.x = nblock;
-    pair_cov_kernel<T> <<<grid, block_size>>> (tod.data, pairs.data, covs.data, bsize, nsamp, npair, nbin);
+    pair_cov_kernel<T> <<<grid, block_size>>> (tod.data, pairs.data, covs11.data, covs12.data, covs22.data, bsize, nsamp, npair, nbin);
     CUDA_PEEK("pair_cov kernel launch");
 }
 

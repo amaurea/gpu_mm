@@ -1631,8 +1631,8 @@ def pair_cov(tod, pairs, bsize):
 	assert pairs.ndim == 2
 	assert pairs.shape[1] == 2
 	nblock = max(tod.shape[1]//bsize,1)
-	covs = cp.zeros((len(pairs),nblock), tod.dtype)
-	gpu_mm_pybind11.pair_cov(tod, pairs, covs, bsize)
+	covs = cp.zeros((3,len(pairs),nblock), tod.dtype)
+	gpu_mm_pybind11.pair_cov(tod, pairs, covs[0], covs[1], covs[2], bsize)
 	return covs
 
 def eigh2(a, b, c, E=None, V1=None):
